@@ -2,14 +2,18 @@ use std::collections::BTreeMap;
 use std::io;
 use std::sync::{Arc, Mutex};
 use std::task::{Poll, Waker};
+use std::time::Duration;
 use futures::future;
 
 pub struct Source<Event> {
     wakers: Mutex<BTreeMap<Event, Vec<Waker>>>,
 }
 
-pub trait EventSource<Handle, Event> {
-    fn poll(&self, events: &[(Handle, Event)]) -> Vec<Waker>;
+pub trait EventSource {
+    type Handle;
+    type Event;
+    fn wait(&self, events: &[(Self::Handle, Self::Event)]) -> Duration;
+    fn poll(&self, events: &[(Self::Handle, Self::Event)]) -> Vec<Waker>;
 }
 
 pub struct EmptyReactor<Handle, Event, S> {
@@ -55,7 +59,7 @@ where
 
 impl<Handle, Event, S> EmptyReactor<Handle, Event, S>
 where
-    S: EventSource<Handle, Event>,
+    S: EventSource<Handle = Handle, Event = Event>,
     Handle: Ord + Copy,
     Event: Ord + Copy,
 {
@@ -76,6 +80,10 @@ where
     }
     pub async fn run(&self) {
         loop {
+            let events = self.events.lock().unwrap();
+            let delay = self.es.wait(&events);
+            drop(events);
+
             let events = self.events.lock().unwrap();
             let ready = self.es.poll(&events);
             drop(events);

@@ -8,3 +8,7 @@ edition = "2018"
 
 [dependencies]
 futures = "0.3"
+
+[[example]]
+name = "timer"
+path = "example/timer.rs"
